@@ -26,7 +26,7 @@ app.post("/users/me/hellodoctor", withBearerTokenAuthentication, async (req, res
 	res.sendStatus(201)
 })
 
-app.post("/_webhooks/hellodoctor", withBearerTokenAuthentication, async (req, res) => {
+app.post("/webhooks/hellodoctor", withBearerTokenAuthentication, async (req, res) => {
 	res.sendStatus(201)
 })
 
