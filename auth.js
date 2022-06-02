@@ -11,7 +11,7 @@ exports.withBearerTokenAuthentication = async function (req, res, next) {
 
         return next()
     } catch(error) {
-        console.warn(`[unauthorized:BAD_FIREBASE_JWT] ${req.method} ${req.path} (TOKEN:${apiBearerToken})`)
+        console.warn(`[unauthorized:BAD_FIREBASE_JWT] ${req.method} ${req.path} (TOKEN:${apiBearerToken})`, error)
         res.sendStatus(401)
     }
 }
