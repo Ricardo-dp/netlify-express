@@ -1,0 +1,6 @@
+google-service-account.json
+config.js
+.DS_Store
+.idea/
+node_modules/
+

@@ -1,0 +1,30 @@
+{
+  "name": "third-party-demo-service",
+  "description": "HelloDoctor Third Party Demo Service",
+  "version": "0.1.0",
+  "private": true,
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "test": "mocha test/index.test.js --exit",
+    "system-test": "NAME=Cloud test/runner.sh mocha test/system.test.js --timeout=30000",
+    "lint": "eslint '**/*.js'",
+    "fix": "eslint --fix '**/*.js'"
+  },
+  "author": "Daniel Sarfati",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "axios": "^0.21.1",
+    "body-parser": "^1.19.0",
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "firebase-admin": "^9.4.0",
+    "jsonwebtoken": "^8.5.1",
+    "uuid": "^8.3.1"
+  },
+  "devDependencies": {
+    "got": "^11.0.0",
+    "mocha": "^8.0.0",
+    "supertest": "^4.0.2"
+  }
+}
