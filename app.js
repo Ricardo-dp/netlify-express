@@ -17,9 +17,12 @@ app.get("/users/me/hellodoctor", withBearerTokenAuthentication, async (req, res)
 
 	const auth = firebase.auth()
 
-	const user = await auth.getUser(userID)
-
-	res.send(user)
+	try {
+		const user = await auth.getUser(userID)
+		res.send(user)
+	} catch(error) {
+		res.sendStatus(404);
+	}
 })
 
 app.post("/users/me/hellodoctor", withBearerTokenAuthentication, async (req, res) => {
