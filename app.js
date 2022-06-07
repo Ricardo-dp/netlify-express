@@ -82,8 +82,44 @@ app.post('/users/me/hellodoctor', withBearerTokenAuthentication, async (req, res
 		})
 })
 
-app.post('/webhooks/hellodoctor', withBearerTokenAuthentication, async (req, res) => {
-	res.sendStatus(201)
+app.post('/webhooks/hellodoctor', async (req, res) => {
+	const {type, data} = req.body;
+
+	// FIXME
+	if (type !== "incomingVideoCall") return;
+
+	const {videoRoomSID, recipientUserID, callerDisplayName} = data;
+
+	const firestore = firebase.firestore();
+	const messaging = firebase.messaging();
+
+	const userQuerySnapshot = await firestore.collection("users").where("helloDoctorUserID", "==", recipientUserID).get();
+
+	if (userQuerySnapshot.empty) {
+		console.warn(`no HD user found with ID ${recipientUserID}`);
+		return;
+	}
+
+	const userSnapshot = userQuerySnapshot.docs[0];
+
+	const message = {
+		token: userSnapshot.get("fcmToken"),
+		data: {
+			type,
+			videoRoomSID,
+			callerDisplayName
+		},
+		android: {
+			priority: "high"
+		}
+	}
+
+	messaging.send(message)
+		.then(() => res.sendStatus(200))
+		.catch((error) => {
+			console.warn(error);
+			res.sendStatus(500);
+		});
 })
 
 const port = process.env.PORT || 3000
