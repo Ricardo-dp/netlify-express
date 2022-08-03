@@ -1,17 +1,17 @@
 const {firebase} = require("./firebase")
 
 exports.withBearerTokenAuthentication = async function (req, res, next) {
-    const apiBearerToken = getHeaderBearerToken(req)
-
     const auth = firebase.auth()
 
     try {
+        const apiBearerToken = getHeaderBearerToken(req)
+
         const validJWT = await auth.verifyIdToken(apiBearerToken)
         req.headers["x-user-uid"] = validJWT.uid
 
         return next()
     } catch(error) {
-        console.warn(`[unauthorized:BAD_FIREBASE_JWT] ${req.method} ${req.path} (TOKEN:${apiBearerToken})`, error)
+        console.warn(`[unauthorized:BAD_FIREBASE_JWT] ${req.method} ${req.path})`, error)
         res.sendStatus(401)
     }
 }
