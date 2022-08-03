@@ -6,6 +6,7 @@ const express = require('express')
 const config = require('./config')
 const {withBearerTokenAuthentication} = require('./auth')
 const {firebase} = require('./firebase')
+const {firestore} = require("firebase-admin");
 
 const app = express()
 app.use(express.static('public'))
@@ -93,7 +94,9 @@ app.post('/webhooks/hellodoctor', async (req, res) => {
 	const firestore = firebase.firestore();
 	const messaging = firebase.messaging();
 
-	const userQuerySnapshot = await firestore.collection("users").where("helloDoctorUserID", "==", recipientUserID).get();
+	const userQuerySnapshot = await firestore.collection("users")
+		.where("helloDoctorUserID", "==", recipientUserID)
+		.get();
 
 	if (userQuerySnapshot.empty) {
 		console.warn(`no HD user found with ID ${recipientUserID}`);
@@ -101,9 +104,10 @@ app.post('/webhooks/hellodoctor', async (req, res) => {
 	}
 
 	const userSnapshot = userQuerySnapshot.docs[0];
+	const userDevicesSnapshot = await userSnapshot.ref.collection("devices").get();
 
 	const message = {
-		token: userSnapshot.get("fcmToken"),
+		tokens: userDevicesSnapshot.docs.map(snapshot => snapshot.get("fcmToken")),
 		data: {
 			type,
 			videoRoomSID,
@@ -114,7 +118,7 @@ app.post('/webhooks/hellodoctor', async (req, res) => {
 		}
 	}
 
-	messaging.send(message)
+	messaging.sendMulticast(message)
 		.then(() => res.sendStatus(200))
 		.catch((error) => {
 			console.warn(error);
@@ -122,7 +126,7 @@ app.post('/webhooks/hellodoctor', async (req, res) => {
 		});
 })
 
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 3023
 
 app.listen(port, () => {
 	console.log(`Server running on ${port}/`)
@@ -131,7 +135,9 @@ app.listen(port, () => {
 async function createHelloDoctorUser(userID, email) {
 	const auth = firebase.auth()
 
-	const createHelloDoctorUserResponse = await publicApi.post(`/users`, {email}).catch(error => console.warn(`error creating user ${userID}`, error))
+	const createHelloDoctorUserResponse = await publicApi
+		.post(`/users`, {email, thirdPartyUserID: userID})
+		.catch(error => console.warn(`error creating user ${userID}`, error))
 
 	if (createHelloDoctorUserResponse?.status !== 200) {
 		console.warn("[createHelloDoctorUserResponse]", createHelloDoctorUserResponse?.data)
@@ -141,6 +147,8 @@ async function createHelloDoctorUser(userID, email) {
 	const {uid: helloDoctorUID} = createHelloDoctorUserResponse.data
 
 	await auth.setCustomUserClaims(userID, {helloDoctorUID})
+
+	await firestore().doc(`users/${userID}`).update({helloDoctorUserID: helloDoctorUID});
 
 	return helloDoctorUID
 }
