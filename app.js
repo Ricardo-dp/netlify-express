@@ -2,11 +2,13 @@ const axios = require('axios')
 const bodyParser = require('body-parser')
 const cors = require('cors')
 const express = require('express')
+const {firestore} = require("firebase-admin");
+const apn = require("apn");
+const { v4: uuid } = require("uuid");
 
 const config = require('./config')
 const {withBearerTokenAuthentication} = require('./auth')
 const {firebase} = require('./firebase')
-const {firestore} = require("firebase-admin");
 
 const app = express()
 app.use(express.static('public'))
@@ -83,11 +85,16 @@ app.post('/users/me/hellodoctor', withBearerTokenAuthentication, async (req, res
 		})
 })
 
-app.post('/webhooks/hellodoctor', async (req, res) => {
-	const {type, data} = req.body;
+const apnOptions = {
+	cert: './keys/aps.cer.pem',
+	key: './keys/aps.key.pem',
+	production: false
+};
 
-	// FIXME
-	if (type !== "incomingVideoCall") return;
+const apnProvider = new apn.Provider(apnOptions);
+
+app.post('/webhooks/hellodoctor', async (req, res) => {
+	const {type: notificationType, data} = req.body;
 
 	const {videoRoomSID, recipientUserID, callerDisplayName} = data;
 
@@ -106,25 +113,73 @@ app.post('/webhooks/hellodoctor', async (req, res) => {
 	const userSnapshot = userQuerySnapshot.docs[0];
 	const userDevicesSnapshot = await userSnapshot.ref.collection("devices").get();
 
-	const message = {
-		tokens: userDevicesSnapshot.docs.map(snapshot => snapshot.get("fcmToken")),
-		data: {
-			type,
-			videoRoomSID,
-			callerDisplayName
-		},
-		android: {
-			priority: "high"
+	function fcmDeviceFilter(deviceSnapshot) {
+		switch (notificationType) {
+			case "incomingVideoCall":
+				return deviceSnapshot.get("fcmToken") && !deviceSnapshot.get("apnsToken");
+			default:
+				return deviceSnapshot.get("fcmToken")
 		}
 	}
 
-	messaging.sendMulticast(message)
-		.then(() => res.sendStatus(200))
-		.catch((error) => {
-			console.warn(error);
-			res.sendStatus(500);
+	function deliverFCMNotifications() {
+		const fcmTokens = userDevicesSnapshot.docs
+			.filter(fcmDeviceFilter)
+			.map(snapshot => snapshot.get("fcmToken"));
+
+		if (fcmTokens.length === 0) {
+			return;
+		}
+
+		const message = {
+			tokens: fcmTokens,
+			data: {
+				type: notificationType,
+				videoRoomSID: videoRoomSID || "",
+				callerDisplayName: callerDisplayName || ""
+			},
+			android: {
+				priority: "high"
+			}
+		}
+
+		return messaging.sendMulticast(message);
+	}
+
+	function deliverPushKitNotifications() {
+		if (notificationType !== "incomingVideoCall") {
+			return;
+		}
+
+		const apnsTokens = userDevicesSnapshot.docs
+			.filter(snapshot => snapshot.get("apnsToken"))
+			.map(snapshot => snapshot.get("apnsToken"));
+
+		const promises = apnsTokens.map(apnsToken => {
+			const pushKitNotification = new apn.Notification();
+			pushKitNotification.expiry = Math.round((new Date().getTime()) / 1000 + 10);
+			pushKitNotification.topic = 'com.hellodoctormx.RNHelloDoctorExampleApp.voip';
+			pushKitNotification.pushType = 'voip';
+			pushKitNotification.payload = {
+				type: notificationType,
+				callUUID: uuid(),
+				videoRoomSID,
+				callerDisplayName
+			}
+
+			return apnProvider.send(pushKitNotification, apnsToken)
 		});
-})
+
+		return Promise.all(promises);
+	}
+
+	const fcmPromise = deliverFCMNotifications();
+	const pushKitPromise = deliverPushKitNotifications();
+
+	await Promise.all([fcmPromise, pushKitPromise]).catch((error) => console.warn('error delivering notifications', error));
+
+	res.sendStatus(200);
+});
 
 const port = process.env.PORT || 3023
 
