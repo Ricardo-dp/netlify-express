@@ -20,4 +20,4 @@ ENV GOOGLE_APPLICATION_CREDENTIALS=/usr/src/app/google-service-account.json
 COPY . ./
 
 # Run the web service on container startup.
-CMD [ "node", "app.js" ]
+CMD [ "node", "index.js" ]

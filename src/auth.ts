@@ -1,6 +1,6 @@
-const {firebase} = require("./firebase")
+import {firebase} from './clients';
 
-exports.withBearerTokenAuthentication = async function (req, res, next) {
+export async function withBearerTokenAuthentication(req, res, next) {
     const auth = firebase.auth()
 
     try {
@@ -17,6 +17,7 @@ exports.withBearerTokenAuthentication = async function (req, res, next) {
 }
 
 const getHeaderBearerToken = (req) => {
+    console.log(req)
     const bearerRegex = /Bearer (.*)/
 
     const authHeaderValue = req.header("authorization")
