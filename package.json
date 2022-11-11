@@ -5,9 +5,7 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "start": "node app.js",
-    "test": "mocha test/index.test.js --exit",
-    "system-test": "NAME=Cloud test/runner.sh mocha test/system.test.js --timeout=30000",
+    "start": "node index.js",
     "lint": "eslint '**/*.js'",
     "fix": "eslint --fix '**/*.js'"
   },
